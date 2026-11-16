@@ -224,3 +224,25 @@ def test_optimize_security_constrained_invalid_outages_raise(branch_outages, mat
         n.optimize.optimize_security_constrained(
             branch_outages=branch_outages, multi_investment_periods=True
         )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Radial branches give non-finite BODF factors (#2085).",
+)
+def test_optimize_security_constrained_default_outages_with_radial_lines(
+    scipy_network,
+):
+    """The default branch_outages=None also outages SciGRID's radial lines.
+
+    The solve must then report its real outcome (optimal or infeasible). On
+    master it returns ("ok", "unknown") with an objective of 0 and no dispatch,
+    which looks like success to code that only checks the status.
+    """
+    n = scipy_network
+    for line_name in ["316", "527", "602"]:
+        n.c.lines.static.loc[line_name, "s_nom"] = 1200
+
+    status, condition = n.optimize.optimize_security_constrained(n.snapshots[0])
+
+    assert not (status == "ok" and condition != "optimal")
